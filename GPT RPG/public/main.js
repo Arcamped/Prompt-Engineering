@@ -211,6 +211,69 @@ function rollDice(sides = 20) {
     return Math.floor(Math.random() * sides) + 1;
 }
 
+function parseCombatData(combatText) {
+    const enemies = [];
+    const allies = [];
+    const terrain = [];
+
+    const enemyRegex = /Enemies:([^]*?)Allies:/;
+    const allyRegex = /Allies:([^]*?)Terrain:/;
+    const terrainRegex = /Terrain:([^]*?)$/;
+
+    const enemyMatches = combatText.match(enemyRegex);
+    const allyMatches = combatText.match(allyRegex);
+    const terrainMatches = combatText.match(terrainRegex);
+
+    if (enemyMatches) {
+        const enemyData = enemyMatches[1].split(',');
+        for (let i = 0; i < enemyData.length; i++) {
+            const enemyNamePos = enemyData[i].trim().split(' ');
+            const enemyName = enemyNamePos[0];
+            const enemyPos = enemyNamePos[1].match(/\d{1,2}/g).map(Number);
+            enemies.push({ name: enemyName, x: enemyPos[0], y: enemyPos[1] });
+        }
+    }
+
+    if (allyMatches) {
+        const allyData = allyMatches[1].split(',');
+        for (let i = 0; i < allyData.length; i++) {
+            const allyNamePos = allyData[i].trim().split(' ');
+            const allyName = allyNamePos[0];
+            const allyPos = allyNamePos[1].match(/\d{1,2}/g).map(Number);
+            allies.push({ name: allyName, x: allyPos[0], y: allyPos[1] });
+        }
+    }
+
+    if (terrainMatches) {
+        const terrainData = terrainMatches[1].split(',');
+        for (let i = 0; i < terrainData.length; i++) {
+            const terrainNamePos = terrainData[i].trim().split(' ');
+            const terrainName = terrainNamePos[0];
+            const terrainPos = terrainNamePos[1].match(/\d{1,2}/g).map(Number);
+            terrain.push({ name: terrainName, x: terrainPos[0], y: terrainPos[1] });
+        }
+    }
+
+    return { enemies, allies, terrain };
+}
+
+async function generateCombatData(storyText) {
+    const framing = 'You are a tool to generate combat data for a text-based RPG. Read the provided story text and determine the positions of enemies, allies (including the player), and terrain for a 10x10 grid. Assume (0, 0) is the bottom-left corner and (9, 9) is the top-right corner. Enemies and allies occupy a single grid location, and will usually be clustered near their side unless the story dictates otherwise. Terrain can occupy multiple locations, but should cover no more, at most, than 1/3rd of the map. The information should be reflective of their place in the story.';
+
+    const prompt = `Story text: ${storyText}\n` +
+        'Identify the names and positions of enemies, allies, and terrain on a 10x10 grid based on the provided story text. Assume (0, 0) is the bottom-left corner and (9, 9) is the top-right corner. Provide the data in the following format:\n' +
+        'Enemies: enemy1_name (x1, y1), enemy2_name (x2, y2), ...\n' +
+        'Allies: ally1_name (x3, y3), ally2_name (x4, y4), ...\n' +
+        'Terrain: terrain1_name (x5, y5), terrain2_name (x6, y6), ...';
+
+    const response = await chatGPT(framing, prompt);
+    console.log(`generateCombatData response: ${response}`);
+
+    const parsedCombatData = parseCombatData(response);
+    return parsedCombatData;
+}
+
+
 // Define enumerated values for action types, skill categories, and quest completion statuses
 const ActionType = {
     ACTION: 'action',
@@ -259,7 +322,9 @@ async function handleAction(player, action, storyLog) {
 
             if (await isInCombat(response)) {
                 updateActivityLog("Entering combat...");
-                const combatResult = await import('./combat.js').then((module) => module.mainCombat());
+                const combatData = await generateCombatData(response)
+                const parsedCombatData = parseCombatData(combatData)
+                const combatResult = await import('./combat.js').then((module) => module.mainCombat(parsedCombatData));
                 storyLog.push(`Combat Result: ${combatResult}`);
                 const response = await chatGPT(`Continue the story after combat: ${combatResult}`, storyLog);
                 storyLog.push(response);
@@ -273,7 +338,9 @@ async function handleAction(player, action, storyLog) {
 
             if (await isInCombat(response)) {
                 updateActivityLog("Entering combat...");
-                const combatResult = await import('./combat.js').then((module) => module.mainCombat());
+                const combatData = await generateCombatData(response)
+                const parsedCombatData = parseCombatData(combatData)
+                const combatResult = await import('./combat.js').then((module) => module.mainCombat(parsedCombatData));
                 storyLog.push(`Combat Result: ${combatResult}`);
                 const response = await chatGPT(`Continue the story after combat: ${combatResult}`, storyLog);
                 storyLog.push(response);
@@ -288,7 +355,9 @@ async function handleAction(player, action, storyLog) {
 
         if (await isInCombat(response)) {
             updateActivityLog("Entering combat...");
-            const combatResult = await import('./combat.js').then((module) => module.mainCombat());
+            const combatData = await generateCombatData(response)
+            const parsedCombatData = parseCombatData(combatData)
+            const combatResult = await import('./combat.js').then((module) => module.mainCombat(parsedCombatData));
             storyLog.push(`Combat Result: ${combatResult}`);
             const response = await chatGPT(`Continue the story after combat: ${combatResult}`, storyLog);
             storyLog.push(response);

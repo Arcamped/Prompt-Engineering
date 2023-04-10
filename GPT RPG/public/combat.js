@@ -1,355 +1,584 @@
-// Define the Unit class, which represents a combat unit in the game.
 class Unit {
-    constructor(stats, name) {
-        this.stats = stats;
-        this.position = { x: 0, y: 0 };
+    constructor(name, stats) {
         this.name = name;
-        this.skills = [];
+        this.stats = stats;
+        this.skills = skills;
+        this.position = { x: 0, y: 0 };
+        this.isDefending = false;
     }
 
-    // New method for adding skills to the unit
-    addSkill(skill) {
-        this.skills.push(skill);
+    rollInitiative() {
+        return Math.floor(Math.random() * 20) + 1 + this.stats.dexterity;
+    }
+
+    moveTo(destination) {
+        const distance = this.calculateDistance(destination);
+        if (distance <= this.stats.movement) {
+            this.position = destination;
+            return true;
+        }
+        return false;
+    }
+
+    calculateDistance(destination) {
+        return Math.abs(destination.x - this.position.x) + Math.abs(destination.y - this.position.y);
+    }
+
+    attack(target) {
+        if (this.calculateDistance(target.position) <= this.stats.attackRange) {
+            // ... Perform attack calculations (damage, hit chance, etc.)
+            // ... Apply damage to the target
+            return true;
+        }
+        return false;
+    }
+
+    defend() {
+        this.isDefending = true;
+    }
+
+    isDefeated() {
+        return this.stats.HP <= 0;
+    }
+
+    useSkill(skill, target) {
+        if (this.calculateDistance(target.position) <= skill.range) {
+            // ... Perform skill calculations (healing, buffing, debuffing, etc.)
+            // ... Apply skill effects to the target
+            return true;
+        }
+        return false;
     }
 }
 
-// Define some example skills for the units
-const fireball = {
-    name: 'Fireball',
-    type: 'ranged',
-    cost: 5,
-    range: 'ranged',
-    rangeValue: 5,
-    action: (attacker, target) => {
-        const damage = rollDice(8);
-        target.stats.HP -= damage;
-        console.log(`${attacker.name} casts Fireball and deals ${damage} damage to ${target.name}. ${target.name}'s HP: ${target.stats.HP}`);
-    }
-};
-
-const charge = {
-    name: 'Charge',
-    type: 'melee',
-    cost: 0,
-    range: 'melee',
-    rangeValue: 1,
-    action: (attacker, target) => {
-        const damage = rollDice(6) + attacker.stats.Strength;
-        target.stats.HP -= damage;
-        console.log(`${attacker.name} charges at ${target.name} and deals ${damage} damage. ${target.name}'s HP: ${target.stats.HP}`);
-    }
-};
-
-const heal = {
-    name: 'Heal',
-    type: 'melee',
-    cost: 3,
-    range: 'melee',
-    rangeValue: 1,
-    action: (attacker, target) => {
-        const healAmount = rollDice(8) + attacker.stats.Wisdom;
-        target.stats.HP += healAmount;
-        console.log(`${attacker.name} heals ${target.name} for ${healAmount} HP. ${target.name}'s HP: ${target.stats.HP}`);
-    }
-};
-
-
-
-// Define the Grid class, which represents the game board where combat takes place
 class Grid {
-    constructor(width, height) {
-        this.width = width;
-        this.height = height;
-        // Create a 2D array of size (height x width) to represent the grid.
-        this.grid = Array.from({ length: height }, () => Array(width).fill(null));
+    constructor(size) {
+        this.size = size;
+        this.grid = this.initGrid(size);
     }
 
-    // Place a unit at the specified position on the grid
+    initGrid(size) {
+        const grid = new Array(size);
+        for (let i = 0; i < size; i++) {
+            grid[i] = new Array(size).fill(null);
+        }
+        return grid;
+    }
+    // Place a unit on the grid at a specified position
     placeUnit(unit, x, y) {
-        this.grid[y][x] = unit;
-        unit.position = { x, y };
+        if (this.isPositionValid(x, y) && !this.isSquareOccupied(x, y)) {
+            this.grid[y][x] = unit;
+            unit.setPosition(x, y);
+        } else {
+            throw new Error('Cannot place unit on an occupied square or outside the grid boundaries.');
+        }
+    }
+    // Place a terrain object on the grid at a specified position
+    placeTerrain(terrain, x, y) {
+        // Check if the position is within the grid and not occupied
+        if (this.isPositionValid(x, y) && !this.isSquareOccupied(x, y)) {
+            this.grid[y][x] = terrain;
+        } else {
+            throw new Error('Cannot place terrain on an occupied square or outside the grid boundaries.');
+        }
+    }
+    // Remove a unit from the grid
+    removeUnit(unit) {
+        const { x, y } = unit.getPosition();
+        if (this.isPositionValid(x, y) && this.isSquareOccupied(x, y)) {
+            this.grid[y][x] = null;
+            unit.setPosition(null, null);
+        } else {
+            throw new Error('Cannot remove unit from an invalid position or unoccupied square.');
+        }
+    }
+    // Check if a grid square is occupied by a unit or terrain object
+    isSquareOccupied(x, y) {
+        return this.isPositionValid(x, y) && this.grid[y][x] !== null;
+    }
+    // Get the unit at a specified position on the grid
+    getUnitAt(x, y) {
+        return this.isPositionValid(x, y) ? this.grid[y][x] : null;
+    }
+    // Get the terrain object at a specified position on the grid
+    getTerrainAt(x, y) {
+        return this.isPositionValid(x, y) ? this.grid[y][x] : null;
+    }
+    isPositionValid(x, y) {
+        return x >= 0 && x < this.size && y >= 0 && y < this.size;
     }
 
-    // Move a unit to the specified position on the grid
-    moveUnit(unit, x, y) {
-        // Check if the move is valid before actually moving the unit
-        if (this.isValidMove(unit, x, y)) {
-            // Remove the unit from its old position on the grid
-            const { x: oldX, y: oldY } = unit.position;
-            this.grid[oldY][oldX] = null;
-            // Add the unit to its new position on the grid
-            this.placeUnit(unit, x, y);
+    render() {
+        const gridContainer = document.createElement('div');
+        gridContainer.id = 'grid-container';
+
+        for (let y = 0; y < this.grid.size; y++) {
+            for (let x = 0; x < this.grid.size; x++) {
+                const square = document.createElement('div');
+                square.className = 'grid-square';
+                square.dataset.x = x;
+                square.dataset.y = y;
+
+                const squareContent = document.createElement('div');
+                squareContent.className = 'square-content';
+
+                const unit = this.grid.getUnitAt(x, y);
+                const terrain = this.grid.getTerrainAt(x, y);
+
+                if (unit) {
+                    squareContent.style.backgroundColor = unit.team.color;
+                    squareContent.textContent = unit.name;
+                } else if (terrain) {
+                    squareContent.style.backgroundColor = terrain.color;
+                    squareContent.textContent = terrain.name;
+                }
+
+                square.appendChild(squareContent);
+                gridContainer.appendChild(square);
+            }
+        }
+
+        const existingGrid = document.querySelector('#grid-container');
+        if (existingGrid) {
+            existingGrid.replaceWith(gridContainer);
+        } else {
+            document.querySelector('#container').appendChild(gridContainer);
+        }
+
+        this.renderUnitInfo();
+    }
+
+}
+
+class Terrain {
+    constructor(name) {
+        this.name = name;
+    }
+}
+
+class Combat {
+    // Constructor takes a grid and an array of teams as input
+    constructor(grid, teams) {
+        this.grid = grid;
+        this.teams = teams;
+        this.turnOrder = this.initTurnOrder();
+        this.currentTurnIndex = 0;
+    }
+
+    // Initializes the turn order based on unit initiative
+    initTurnOrder() {
+        const units = this.teams.flatMap(team => team.units);
+        units.sort((a, b) => b.initiative - a.initiative);
+        return units;
+    }
+
+    // Returns the unit whose turn it is
+    getCurrentUnit() {
+        return this.turnOrder[this.currentTurnIndex];
+    }
+
+    // Advances to the next unit's turn
+    nextTurn() {
+        this.currentTurnIndex = (this.currentTurnIndex + 1) % this.turnOrder.length;
+    }
+
+    handleCommand(command, target) {
+        switch (command) {
+            case 'move':
+                // Get the destination coordinates from the user's click event
+                const destination = {
+                    x: parseInt(target.getAttribute('data-x')),
+                    y: parseInt(target.getAttribute('data-y'))
+                };
+
+                // Check if the destination is valid
+                if (this.isValidMove(destination)) {
+                    // Move the unit to the destination
+                    this.activeUnit.moveTo(destination);
+
+                    // Update the game state and render the changes
+                    this.changeState(GameState.UPDATE);
+                    this.render();
+                }
+                break;
+            case 'attack':
+                // Get the target unit from the clicked grid square
+                const targetUnit = this.getUnitAtPosition({
+                    x: parseInt(target.getAttribute('data-x')),
+                    y: parseInt(target.getAttribute('data-y'))
+                });
+
+                // Perform the attack if a valid target is selected
+                if (targetUnit) {
+                    this.activeUnit.attack(targetUnit);
+
+                    // Update the game state and render the changes
+                    this.changeState(GameState.UPDATE);
+                    this.render();
+                }
+                break;
+            case 'use skill':
+                // Get the target unit from the clicked grid square
+                const targetUnitForSkill = this.getUnitAtPosition({
+                    x: parseInt(target.getAttribute('data-x')),
+                    y: parseInt(target.getAttribute('data-y'))
+                });
+
+                // Get the selected skill from the unit's list of skills
+                const selectedSkill = this.activeUnit.skills[this.selectedSkillIndex];
+
+                // Perform the skill if a valid target is selected
+                if (targetUnitForSkill) {
+                    this.activeUnit.useSkill(selectedSkill, targetUnitForSkill);
+
+                    // Update the game state and render the changes
+                    this.changeState(GameState.UPDATE);
+                    this.render();
+                }
+                break;
         }
     }
 
-    // Check if a move is valid for a given unit
-    isValidMove(unit, x, y) {
-        // Calculate the distance between the starting position and the target position
-        const { x: startX, y: startY } = unit.position;
-        const distance = Math.abs(startX - x) + Math.abs(startY - y);
-
-        // Check if the distance is within the unit's movement range
-        if (distance > unit.stats.Movement) {
+    // Helper method to check if the destination is a valid move
+    isValidMove(destination) {
+        // Check if the destination is within the unit's movement range
+        const distance = this.activeUnit.calculateDistance(destination);
+        if (distance > this.activeUnit.stats.movement) {
             return false;
         }
 
-        // Check if the target position is already occupied by another unit
-        if (this.unitAt(x, y) !== null) {
-            return false;
-        }
-
-        // Check if there are any obstacles (other units) in the path between the starting and target positions
-        const steps = Math.max(Math.abs(x - startX), Math.abs(y - startY));
-        for (let i = 1; i < steps; i++) {
-            const ix = startX + i * stepX;
-            const iy = startY + i * stepY;
-            if (this.grid[iy][ix] !== null) {
+        // Check if the destination is occupied by another unit or an obstacle
+        for (const unit of this.units) {
+            if (unit.position.x === destination.x && unit.position.y === destination.y) {
                 return false;
             }
         }
-        // If none of the above conditions were met, then the move is valid
+
+        // The destination is valid
         return true;
     }
 
-    unitAt(x, y) {
-        return this.grid[y][x];
-    }
-
-    // Add other grid management functions
-}
-
-/*
-render() {
-    let table = document.createElement('table');
-    table.classList.add('grid');
-    
-    for (let y = 0; y < this.height; y++) {
-        let row = table.insertRow(y);
-        for (let x = 0; x < this.width; x++) {
-            let cell = row.insertCell(x);
-            if (this.grid[y][x] !== null) {
-                cell.textContent = this.grid[y][x].name;
-            } else {
-                cell.textContent = '';
+    // Helper method to get a unit at a specific position
+    getUnitAtPosition(position) {
+        for (const unit of this.units) {
+            if (unit.position.x === position.x && unit.position.y === position.y) {
+                return unit;
             }
         }
+        return null;
     }
-    return table;
-}
-*/
 
-function rollDice(sides) {
-    return Math.floor(Math.random() * sides) + 1;
-}
-// Calculates the initiative order for a list of units by rolling a 20-sided die and adding the unit's dexterity score. Returns an array of the units in initiative order.
-function calculateInitiative(units) {
-    const initiatives = units.map((unit) => ({
-        unit,
-        initiative: rollDice(20) + unit.stats.Dexterity,
-    }));
 
-    initiatives.sort((a, b) => b.initiative - a.initiative);
-    return initiatives.map((entry) => entry.unit);
+    // Executes an action for the current unit, validating action type, range, and target
+    async executeAction(unit, actionType, target, x, y) {
+        if (unit === this.getCurrentUnit()) {
+            if (actionType === 'move') {
+                const destination = { x, y };
+                if (unit.moveTo(destination)) {
+                    this.grid.removeUnit(unit);
+                    this.grid.placeUnit(unit, x, y);
+                } else {
+                    throw new Error('Invalid move. The target square is out of range or occupied.');
+                }
+            } else if (actionType === 'attack') {
+                const targetUnit = this.grid.getUnitAt(x, y);
+                if (targetUnit) {
+                    unit.attack(targetUnit);
+                } else {
+                    throw new Error('Invalid target. There is no unit at the target square.');
+                }
+            } else if (actionType === 'defend') {
+                unit.defend();
+            } else if (actionType === 'useSkill') {
+                const targetUnit = this.grid.getUnitAt(x, y);
+                if (targetUnit) {
+                    unit.useSkill(target, targetUnit);
+                } else {
+                    throw new Error('Invalid target. There is no unit at the target square.');
+                }
+            } else {
+                throw new Error('Invalid action type.');
+            }
+
+            // Proceed to the next unit's turn
+            this.nextTurn();
+            // Render the updated grid
+            this.render();
+        } else {
+            throw new Error('It is not this unit\'s turn.');
+        }
+
+
+    }
+
+    renderUnitInfo() {
+        const unitInfoContainer = document.createElement('div');
+        unitInfoContainer.id = 'unit-info-container';
+
+        for (const unit of this.turnOrder) {
+            const unitCard = document.createElement('div');
+            unitCard.className = 'unit-card';
+
+            if (unit.isDefeated()) {
+                unitCard.classList.add('dead');
+            }
+
+            const unitName = document.createElement('div');
+            unitName.className = 'unit-name';
+            unitName.textContent = unit.name;
+            unitCard.appendChild(unitName);
+
+            const unitStats = document.createElement('div');
+            unitStats.className = 'unit-stats';
+            for (const [statName, statValue] of Object.entries(unit.stats)) {
+                const stat = document.createElement('div');
+                stat.className = 'stat';
+                stat.textContent = `${statName}: ${statValue}`;
+                unitStats.appendChild(stat);
+            }
+            unitCard.appendChild(unitStats);
+
+            const skills = document.createElement('div');
+            skills.className = 'skills';
+            for (const skill of unit.skills) {
+                const skillElement = document.createElement('div');
+                skillElement.className = 'skill';
+                skillElement.textContent = skill.name;
+
+                skillElement.addEventListener('mouseenter', () => {
+                    // Display skill description on hover
+                    const skillDescription = `${skill.name}: ${skill.description}`;
+                    document.querySelector('#input-prompt').textContent = skillDescription;
+                });
+
+                skillElement.addEventListener('mouseleave', () => {
+                    // Clear skill description when not hovering
+                    document.querySelector('#input-prompt').textContent = '';
+                });
+
+                skills.appendChild(skillElement);
+            }
+            unitCard.appendChild(skills);
+
+            unitInfoContainer.appendChild(unitCard);
+        }
+
+        const existingUnitInfo = document.querySelector('#unit-info-container');
+        if (existingUnitInfo) {
+            existingUnitInfo.replaceWith(unitInfoContainer);
+        } else {
+            document.querySelector('#container').appendChild(unitInfoContainer);
+        }
+    }
+
+    render() {
+        const gridContainer = document.createElement('div');
+        gridContainer.id = 'grid-container';
+
+        for (let y = 0; y < this.grid.size; y++) {
+            for (let x = 0; x < this.grid.size; x++) {
+                const square = document.createElement('div');
+                square.className = 'grid-square';
+
+                const squareContent = document.createElement('div');
+                squareContent.className = 'square-content';
+
+                const unit = this.grid.getUnitAt(x, y);
+                const terrain = this.grid.getTerrainAt(x, y);
+
+                if (unit) {
+                    squareContent.style.backgroundColor = unit.team.color;
+                    squareContent.textContent = unit.name;
+                } else if (terrain) {
+                    squareContent.style.backgroundColor = terrain.color;
+                    squareContent.textContent = terrain.name;
+                }
+
+                square.appendChild(squareContent);
+                gridContainer.appendChild(square);
+            }
+        }
+        for (let y = 0; y < this.grid.size; y++) {
+            for (let x = 0; x < this.grid.size; x++) {
+                const square = document.createElement('div');
+                square.className = 'grid-square';
+                square.dataset.x = x;
+                square.dataset.y = y;
+            }
+        }
+        const existingGrid = document.querySelector('#grid-container');
+        if (existingGrid) {
+            existingGrid.replaceWith(gridContainer);
+        } else {
+            document.querySelector('#container').appendChild(gridContainer);
+        }
+
+        this.renderUnitInfo();
+    }
+    // Returns true if combat is finished (i.e., any team has all of its units defeated)
+    isCombatFinished() {
+        return this.teams.some(team => team.units.every(unit => unit.isDefeated()));
+    }
 }
-// Calculates the damage dealt by a melee attack, subtracts it from the target's HP, and logs the result to the console.
-function meleeAttack(attacker, target) {
-    const damage = rollDice(6);
-    target.stats.HP -= damage;
-    console.log(`${attacker.name} deals ${damage} damage to ${target.name}. ${target.name}'s HP: ${target.stats.HP}`);
-}
-// Calculates the damage dealt by a ranged attack, subtracts it from the target's HP, and logs the result to the console.
-function rangedAttack(attacker, target) {
-    const damage = rollDice(4);
-    target.stats.HP -= damage;
-    console.log(`${attacker.name} deals ${damage} damage to ${target.name}. ${target.name}'s HP: ${target.stats.HP}`);
-}
-// Returns true if two units are adjacent to each other on the grid, meaning they are within one tile of each other horizontally, vertically, or diagonally.
-function isAdjacent(unit1, unit2) {
-    const { x: x1, y: y1 } = unit1.position;
-    const { x: x2, y: y2 } = unit2.position;
-    return Math.abs(x1 - x2) <= 1 && Math.abs(y1 - y2) <= 1;
-}
-// Returns true if two units are adjacent to each other on the grid, meaning they are within one tile of each other horizontally, vertically, or diagonally.
-function isWithinRange(unit1, unit2, range) {
-    const { x: x1, y: y1 } = unit1.position;
-    const { x: x2, y: y2 } = unit2.position;
-    return Math.abs(x1 - x2) <= range && Math.abs(y1 - y2) <= range;
-}
-// Returns a promise that resolves to the user's input in response to a given prompt.
-async function getInput(prompt) {
-    return new Promise((resolve) => {
-        const rl = require('readline').createInterface({
-            input: process.stdin,
-            output: process.stdout,
+
+async function handleUserTurn(combat) {
+    return new Promise(async (resolve) => {
+        const currentUnit = combat.getCurrentUnit();
+        if (currentUnit.isDefeated()) {
+            combat.nextTurn();
+            resolve();
+            return;
+        }
+
+        const actionsMenu = document.createElement('div');
+        actionsMenu.className = 'actions-menu';
+
+        const actions = ['move', 'attack', 'defend', 'useSkill'];
+        actions.forEach((action) => {
+            const actionButton = document.createElement('button');
+            actionButton.textContent = action;
+            actionButton.addEventListener('click', async () => {
+                if (action === 'defend') {
+                    currentUnit.defend();
+                    combat.nextTurn();
+                    combat.render();
+                    resolve();
+                } else if (action === 'useSkill') {
+                    showSkillsMenu(currentUnit, combat, resolve);
+                } else {
+                    highlightActionRange(currentUnit, action, combat);
+                }
+            });
+            actionsMenu.appendChild(actionButton);
         });
 
-        rl.question(prompt, (input) => {
-            rl.close();
-            resolve(input);
-        });
+        document.querySelector('#container').appendChild(actionsMenu);
     });
 }
 
-// Implements a turn for a player-controlled unit, prompting the player to choose an action (move, attack, skill, or end) and executing the corresponding code.
-async function playerTurn(player, enemies, grid) {
-    let turnEnded = false;
+function showSkillsMenu(currentUnit, combat, resolve) {
+    // Replace the actions menu with the skills menu
+    const skillsMenu = document.createElement('div');
+    skillsMenu.className = 'skills-menu';
 
-    while (!turnEnded) {
-        const action = await getInput(`${player.name}, choose an action (move, attack, skill, end): `);
+    currentUnit.skills.forEach((skill) => {
+        const skillButton = document.createElement('button');
+        skillButton.textContent = skill.name;
+        skillButton.addEventListener('click', async () => {
+            highlightActionRange(currentUnit, 'useSkill', combat, skill);
+        });
+        skillsMenu.appendChild(skillButton);
+    });
 
-        switch (action.toLowerCase()) {
-            case 'move':
-                const newX = parseInt(await getInput('Enter new X position: '), 10);
-                const newY = parseInt(await getInput('Enter new Y position: '), 10);
-
-                if (grid.isValidMove(player, newX, newY)) {
-                    grid.moveUnit(player, newX, newY);
-                    console.log(`${player.name} moved to (${newX}, ${newY})`);
-                } else {
-                    console.log('Invalid move. Please try again.');
-                }
-                break;
-
-            case 'attack':
-                const targetIndex = parseInt(await getInput('Choose target enemy (0-based index): '), 10);
-                const target = enemies[targetIndex];
-
-                if (!target) {
-                    console.log('Invalid target. Please try again.');
-                    break;
-                }
-
-                if (isAdjacent(player, target)) {
-                    meleeAttack(player, target);
-                } else if (isWithinRange(player, target, 5)) {
-                    rangedAttack(player, target);
-                } else {
-                    console.log('Target is out of range. Please try again.');
-                }
-                break;
-
-            case 'skill':
-                const skillIndex = parseInt(await getInput('Choose a skill (0-based index) or enter "cancel" to cancel: '), 10);
-                if (isNaN(skillIndex)) {
-                    console.log('Invalid input. Please try again.');
-                    continue;
-                }
-
-                if (skillIndex < 0 || skillIndex >= player.skills.length) {
-                    console.log('Invalid skill index. Please try again.');
-                    continue;
-                }
-
-                const skill = player.skills[skillIndex];
-
-                if (skill.cost > player.stats.MP) {
-                    console.log('Not enough MP. Please try again.');
-                    continue;
-                }
-
-                if (skill.range === 'melee') {
-                    const targetIndex = parseInt(await getInput('Choose target enemy (0-based index): '), 10);
-                    const target = enemies[targetIndex];
-
-                    if (!target) {
-                        console.log('Invalid target. Please try again.');
-                        continue;
-                    }
-
-                    if (isAdjacent(player, target)) {
-                        skill.action(player, target);
-                    } else {
-                        console.log('Target is out of range. Please try again.');
-                        continue;
-                    }
-                } else if (skill.range === 'ranged') {
-                    const targetIndex = parseInt(await getInput('Choose target enemy (0-based index): '), 10);
-                    const target = enemies[targetIndex];
-
-                    if (!target) {
-                        console.log('Invalid target. Please try again.');
-                        continue;
-                    }
-
-                    if (isWithinRange(player, target, skill.rangeValue)) {
-                        skill.action(player, target);
-                    } else {
-                        console.log('Target is out of range. Please try again.');
-                        continue;
-                    }
-                } else if (skill.range === 'aoe') {
-                    const targets = enemies.filter((enemy) => isWithinRange(player, enemy, skill.rangeValue));
-                    skill.action(player, targets);
-                }
-
-                player.stats.MP -= skill.cost;
-                console.log(`${player.name} used ${skill.name}. ${player.name}'s MP: ${player.stats.MP}`);
-                break;
-
-
-            case 'end':
-                turnEnded = true;
-                console.log(`${player.name}'s turn has ended.`);
-                break;
-
-            default:
-                console.log('Invalid action. Please try again.');
-        }
-    }
+    document.querySelector('.actions-menu').replaceWith(skillsMenu);
 }
 
-// Implements a turn for a ChatGPT-controlled enemy unit, choosing an action based on the current game state and executing the corresponding code.
-function chatgptTurn(enemy, allies, grid) {
-    // Implement ChatGPT-controlled enemy's turn
-}
+function highlightActionRange(currentUnit, actionType, combat, skill = null) {
+    const range = actionType === 'move' ? currentUnit.stats.movement
+        : actionType === 'attack' ? currentUnit.stats.attackRange
+            : skill.range;
 
-// Runs a combat between two sides (allies and enemies), alternating turns between units and checking for defeat conditions (all allies defeated or all enemies defeated). Returns the name of the winning side.
-async function combat(allies, enemies, grid) {
-    const allUnits = allies.concat(enemies);
-    while (true) {
-        const initiativeOrder = calculateInitiative(allUnits);
-        for (const unit of initiativeOrder) {
-            if (allies.includes(unit)) {
-                playerTurn(unit, enemies, grid);
-            } else {
-                chatgptTurn(unit, allies, grid);
-            }
-
-            // Check if one side has been defeated
-            const alliesDefeated = allies.every((ally) => ally.stats.HP <= 0);
-            const enemiesDefeated = enemies.every((enemy) => enemy.stats.HP <= 0);
-
-            if (alliesDefeated || enemiesDefeated) {
-                return alliesDefeated ? 'Enemies' : 'Allies';
+    const { x: unitX, y: unitY } = currentUnit.position;
+    for (let y = 0; y < combat.grid.size; y++) {
+        for (let x = 0; x < combat.grid.size; x++) {
+            const square = document.querySelector(`.grid-square[data-x="${x}"][data-y="${y}"]`);
+            if (currentUnit.calculateDistance({ x, y }) <= range) {
+                square.classList.add('highlighted');
+                square.addEventListener('click', async () => {
+                    await combat.executeAction(currentUnit, actionType, skill, x, y);
+                    clearHighlights(combat.grid.size);
+                    combat.render();
+                    resolve();
+                });
             }
         }
     }
 }
 
-// Initializes the game elements, including the player, allies, enemies, and grid, places the units on the grid, and runs the combat loop. Logs the winner to the console at the end of the game.
-async function mainCombat() {
-    // Initialize game elements
-    const playerStats = { Strength: 10, Dexterity: 10, Intelligence: 10, Constitution: 10, Wisdom: 10, Movement: 5, HP: 20, MP: 10 };
-    const player = new Unit(playerStats, 'Player');
-    const grid = new Grid(10, 10);
-
-    // Initialize enemies and allies
-    const allies = [player];
-    const enemies = [new Unit({ ...playerStats, Dexterity: 8 }, 'Enemy 1'), new Unit({ ...playerStats, Dexterity: 12 }, 'Enemy 2')];
-
-    // Add the skills to the unitscd
-    player.addSkill(charge);
-    player.addSkill(heal);
-    enemies[0].addSkill(fireball);
-    enemies[1].addSkill(charge);
-    // Place units on the grid
-    grid.placeUnit(player, 1, 1);
-    grid.placeUnit(enemies[0], 8, 8);
-    grid.placeUnit(enemies[1], 9, 9);
-
-    // Run the combat
-    const winner = combat(allies, enemies, grid);
-    console.log(`The winner is: ${winner}`);
+function clearHighlights(gridSize) {
+    for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+            const square = document.querySelector(`.grid-square[data-x="${x}"][data-y="${y}"]`);
+            square.classList.remove('highlighted');
+            square.removeEventListener('click');
+        }
+    }
 }
 
-// combat();
+function createCommandButtons() {
+    const commandContainer = document.createElement("div");
+    commandContainer.id = "command-container";
+
+    const moveButton = document.createElement("button");
+    moveButton.innerText = "Move";
+    moveButton.addEventListener("click", () => {
+        // Handle move command
+    });
+
+    const attackButton = document.createElement("button");
+    attackButton.innerText = "Attack";
+    attackButton.addEventListener("click", () => {
+        // Handle attack command
+    });
+
+    const defendButton = document.createElement("button");
+    defendButton.innerText = "Defend";
+    defendButton.addEventListener("click", () => {
+        // Handle defend command
+    });
+
+    const useSkillButton = document.createElement("button");
+    useSkillButton.innerText = "Use Skill";
+    useSkillButton.addEventListener("click", () => {
+        // Handle use skill command
+    });
+
+    commandContainer.appendChild(moveButton);
+    commandContainer.appendChild(attackButton);
+    commandContainer.appendChild(defendButton);
+    commandContainer.appendChild(useSkillButton);
+
+    const container = document.getElementById("container");
+    container.appendChild(commandContainer);
+}
+
+
+async function mainCombat(parsedCombatData) {
+    const gridSize = parsedCombatData.gridSize;
+    const teamsData = parsedCombatData.teams;
+    const terrainData = parsedCombatData.terrain;
+
+    const grid = new Grid(gridSize);
+    createCommandButtons();
+
+    const teams = teamsData.map(teamData => {
+        const teamUnits = teamData.units.map(unitData => {
+            const unit = new Unit(unitData.name, unitData.stats);
+            grid.placeUnit(unit, unitData.position.x, unitData.position.y);
+            return unit;
+        });
+
+        return {
+            color: teamData.color,
+            units: teamUnits,
+        };
+    });
+
+    for (const terrainObj of terrainData) {
+        const terrain = new Terrain(terrainObj.name);
+        grid.placeTerrain(terrain, terrainObj.position.x, terrainObj.position.y);
+    }
+
+    setupGridListeners();
+    const combat = new Combat(grid, teams);
+
+    combat.render();
+
+    // Main combat loop
+    while (!combat.isCombatFinished()) {
+        await handleUserTurn(combat);
+    }
+}
+
+
+export { mainCombat };
