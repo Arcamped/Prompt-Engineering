@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text-based RPG</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        #story-text, #activity-text {
+            width: 80%;
+            height: 300px;
+            border: 1px solid #444;
+            padding: 10px;
+            margin-bottom: 20px;
+            overflow-y: scroll;
+            background-color: #333;
+        }
+
+        input[type="text"] {
+            width: 80%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            padding: 5px;
+            border: 1px solid #444;
+            background-color: #333;
+            color: #fff;
+        }
+
+        button {
+            width: 80%;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>Text-based RPG</h1>
+        <div id="story-text"></div>
+        <div id="activity-text"></div>
+        <input type="text" id="inputField" placeholder="Enter your action">
+        <button id="submit-action">Submit Action</button>
+        <button id="start-game">Start Game</button>
+        <button id="reset-game">Reset Game</button>
+    </div>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
